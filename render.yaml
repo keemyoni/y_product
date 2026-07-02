@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: pt-booking-saas
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STORAGE_DRIVER
+        value: postgres
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DEFAULT_TENANT_ID
+        value: tenant_default
+      - key: DEFAULT_TENANT_NAME
+        value: Studio Balance

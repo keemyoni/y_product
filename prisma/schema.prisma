@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     AdminUser[]
+  trainers  Trainer[]
+  members   Member[]
+  scheduleSlots ScheduleSlot[]
+  reservations Reservation[]
+  lessonPackages LessonPackage[]
+  settlements Settlement[]
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("owner")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model Trainer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String?
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  members Member[]
+  scheduleSlots ScheduleSlot[]
+  reservations Reservation[]
+}
+
+model Member {
+  id             String   @id @default(cuid())
+  tenantId       String
+  trainerId      String
+  name           String
+  phone          String
+  memberToken    String   @unique
+  status         String   @default("active")
+  memo           String?
+  packageName    String
+  totalCount     Int
+  remainingCount Int
+  completedCount Int      @default(0)
+  paidAmount     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  trainer Trainer @relation(fields: [trainerId], references: [id])
+  reservations Reservation[]
+  lessonPackages LessonPackage[]
+}
+
+model ScheduleSlot {
+  id           String   @id @default(cuid())
+  tenantId     String
+  trainerId    String
+  date         DateTime
+  startTime    String
+  endTime      String
+  slotDuration Int      @default(60)
+  isAvailable  Boolean  @default(true)
+  room         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  trainer      Trainer       @relation(fields: [trainerId], references: [id])
+  reservations Reservation[]
+
+  @@index([tenantId, trainerId, date])
+}
+
+model Reservation {
+  id              String   @id @default(cuid())
+  tenantId        String
+  memberId        String
+  trainerId       String
+  scheduleSlotId  String
+  date            DateTime
+  startTime       String
+  endTime         String
+  status          String   @default("booked")
+  memo            String?
+  cancelReason    String?
+  noShowDeducted  Boolean  @default(false)
+  room            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  member       Member       @relation(fields: [memberId], references: [id])
+  trainer      Trainer      @relation(fields: [trainerId], references: [id])
+  scheduleSlot ScheduleSlot @relation(fields: [scheduleSlotId], references: [id])
+  settlement   Settlement?
+
+  @@index([tenantId, date, status])
+  @@unique([trainerId, date, startTime, status])
+}
+
+model LessonPackage {
+  id             String    @id @default(cuid())
+  tenantId       String
+  memberId       String?
+  packageName    String
+  totalCount     Int
+  remainingCount Int?
+  paidAmount     Int
+  pricePerLesson Int
+  startedAt      DateTime?
+  expiredAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  member Member? @relation(fields: [memberId], references: [id])
+}
+
+model Settlement {
+  id               String   @id @default(cuid())
+  tenantId          String
+  reservationId     String   @unique
+  lessonDate        DateTime
+  pricePerLesson    Int
+  settlementAmount  Int
+  status            String   @default("expected")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+}
