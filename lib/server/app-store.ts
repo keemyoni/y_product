@@ -21,7 +21,8 @@ export async function readAppData(): Promise<AppData> {
   noStore();
   if (usesPostgresStorage()) return readPrismaData();
   try {
-    return JSON.parse(await readFile(dataFile, "utf8")) as AppData;
+    const data = JSON.parse(await readFile(dataFile, "utf8")) as AppData;
+    return { ...data, scheduleBlocks: data.scheduleBlocks ?? [] };
   } catch {
     const data = seedData();
     await writeAppData(data);
@@ -61,12 +62,18 @@ export function availableSlots(data: AppData, member: Member, date: string) {
       .filter((reservation) => reservation.trainerId === member.trainerId && reservation.date === date && reservation.status === "booked")
       .map((reservation) => reservation.startTime)
   );
+  const blocked = new Set(
+    data.scheduleBlocks
+      .filter((block) => block.trainerId === member.trainerId && block.date === date)
+      .map((block) => block.startTime)
+  );
 
   return data.scheduleSlots
     .filter((slot) => slot.trainerId === member.trainerId && slot.date === date && slot.isAvailable)
     .flatMap((slot) =>
       generateSlots(slot)
         .filter((time) => !taken.has(time))
+        .filter((time) => !blocked.has(time))
         .map((time) => ({ scheduleSlotId: slot.id, time, endTime: reservationEnd(time, slot.duration), room: slot.room }))
     );
 }

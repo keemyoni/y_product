@@ -17,6 +17,7 @@ model Tenant {
   trainers  Trainer[]
   members   Member[]
   scheduleSlots ScheduleSlot[]
+  scheduleBlocks ScheduleBlock[]
   reservations Reservation[]
   lessonPackages LessonPackage[]
   settlements Settlement[]
@@ -47,6 +48,7 @@ model Trainer {
   tenant  Tenant   @relation(fields: [tenantId], references: [id])
   members Member[]
   scheduleSlots ScheduleSlot[]
+  scheduleBlocks ScheduleBlock[]
   reservations Reservation[]
 }
 
@@ -91,6 +93,25 @@ model ScheduleSlot {
   reservations Reservation[]
 
   @@index([tenantId, trainerId, date])
+}
+
+model ScheduleBlock {
+  id        String   @id @default(cuid())
+  tenantId  String
+  trainerId String
+  date      DateTime
+  startTime String
+  endTime   String
+  room      String?
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  trainer Trainer @relation(fields: [trainerId], references: [id])
+
+  @@index([tenantId, trainerId, date])
+  @@unique([tenantId, trainerId, date, startTime])
 }
 
 model Reservation {

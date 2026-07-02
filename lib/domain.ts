@@ -5,6 +5,7 @@ export type Trainer = {
   id: string;
   name: string;
   phone?: string;
+  memo?: string;
 };
 
 export type Member = {
@@ -33,6 +34,16 @@ export type ScheduleSlot = {
   room: string;
 };
 
+export type ScheduleBlock = {
+  id: string;
+  trainerId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  room: string;
+  reason?: string;
+};
+
 export type Reservation = {
   id: string;
   memberId: string;
@@ -59,6 +70,7 @@ export type AppData = {
   trainers: Trainer[];
   members: Member[];
   scheduleSlots: ScheduleSlot[];
+  scheduleBlocks: ScheduleBlock[];
   reservations: Reservation[];
   lessonPackages: LessonPackage[];
 };

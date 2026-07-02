@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AppData, LessonPackage, Member, Reservation, ScheduleSlot, Trainer } from "@/lib/domain";
+import type { AppData, LessonPackage, Member, Reservation, ScheduleBlock, ScheduleSlot, Trainer } from "@/lib/domain";
 import { prisma } from "@/lib/server/prisma";
 import { seedData } from "@/lib/server/seed-data";
 
@@ -18,10 +18,11 @@ function fromDate(date: Date) {
 export async function readPrismaData(): Promise<AppData> {
   await ensureSeeded();
 
-  const [trainers, members, scheduleSlots, reservations, lessonPackages] = await Promise.all([
+  const [trainers, members, scheduleSlots, scheduleBlocks, reservations, lessonPackages] = await Promise.all([
     prisma.trainer.findMany({ where: { tenantId: TENANT_ID }, orderBy: { name: "asc" } }),
     prisma.member.findMany({ where: { tenantId: TENANT_ID }, orderBy: { name: "asc" } }),
     prisma.scheduleSlot.findMany({ where: { tenantId: TENANT_ID }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
+    prisma.scheduleBlock.findMany({ where: { tenantId: TENANT_ID }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
     prisma.reservation.findMany({ where: { tenantId: TENANT_ID }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
     prisma.lessonPackage.findMany({ where: { tenantId: TENANT_ID, memberId: null }, orderBy: { totalCount: "asc" } })
   ]);
@@ -30,7 +31,8 @@ export async function readPrismaData(): Promise<AppData> {
     trainers: trainers.map<Trainer>((trainer) => ({
       id: trainer.id,
       name: trainer.name,
-      phone: trainer.phone ?? undefined
+      phone: trainer.phone ?? undefined,
+      memo: trainer.memo ?? undefined
     })),
     members: members.map<Member>((member) => ({
       id: member.id,
@@ -55,6 +57,15 @@ export async function readPrismaData(): Promise<AppData> {
       duration: slot.slotDuration,
       isAvailable: slot.isAvailable,
       room: slot.room ?? "Room A"
+    })),
+    scheduleBlocks: scheduleBlocks.map<ScheduleBlock>((block) => ({
+      id: block.id,
+      trainerId: block.trainerId,
+      date: fromDate(block.date),
+      startTime: block.startTime,
+      endTime: block.endTime,
+      room: block.room ?? "Room A",
+      reason: block.reason ?? undefined
     })),
     reservations: reservations.map<Reservation>((reservation) => ({
       id: reservation.id,
@@ -89,6 +100,7 @@ export async function writePrismaData(data: AppData) {
 
     await tx.settlement.deleteMany({ where: { tenantId: TENANT_ID } });
     await tx.reservation.deleteMany({ where: { tenantId: TENANT_ID } });
+    await tx.scheduleBlock.deleteMany({ where: { tenantId: TENANT_ID } });
     await tx.scheduleSlot.deleteMany({ where: { tenantId: TENANT_ID } });
     await tx.lessonPackage.deleteMany({ where: { tenantId: TENANT_ID } });
     await tx.member.deleteMany({ where: { tenantId: TENANT_ID } });
@@ -100,7 +112,8 @@ export async function writePrismaData(data: AppData) {
           id: trainer.id,
           tenantId: TENANT_ID,
           name: trainer.name,
-          phone: trainer.phone
+          phone: trainer.phone,
+          memo: trainer.memo
         }
       });
     }
@@ -137,6 +150,21 @@ export async function writePrismaData(data: AppData) {
           slotDuration: slot.duration,
           isAvailable: slot.isAvailable,
           room: slot.room
+        }
+      });
+    }
+
+    for (const block of data.scheduleBlocks ?? []) {
+      await tx.scheduleBlock.create({
+        data: {
+          id: block.id,
+          tenantId: TENANT_ID,
+          trainerId: block.trainerId,
+          date: toDate(block.date),
+          startTime: block.startTime,
+          endTime: block.endTime,
+          room: block.room,
+          reason: block.reason
         }
       });
     }

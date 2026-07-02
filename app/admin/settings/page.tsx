@@ -4,8 +4,12 @@ import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 import { KeyboardShortcuts } from "@/components/ux/keyboard-shortcuts";
 import { ModalDemo } from "@/components/ux/modal-demo";
 import { ToastDemo } from "@/components/ux/toast-demo";
+import { getAdminData } from "@/lib/server/view-models";
+import { TrainerManagement } from "./trainer-management";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const { raw } = await getAdminData();
+
   return (
     <div className="space-y-6">
       <PageHeading
@@ -38,6 +42,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+      <TrainerManagement trainers={raw.trainers} />
       <KeyboardShortcuts />
     </div>
   );

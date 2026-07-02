@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { ReservationStatus } from "@/lib/domain";
+import { reservationEnd, type ReservationStatus } from "@/lib/domain";
 import { actionFailure, actionSuccess } from "@/lib/action-result";
 import { createReservationRecord, newMemberToken, updateAppData } from "@/lib/server/app-store";
 import { newId } from "@/lib/server/seed-data";
@@ -9,6 +9,9 @@ import {
   adminMemberInputSchema,
   adminReservationInputSchema,
   adminReservationStatusInputSchema,
+  adminScheduleBlockInputSchema,
+  adminScheduleSlotInputSchema,
+  adminTrainerInputSchema,
   cancelMemberReservationInputSchema,
   idSchema,
   memberReservationInputSchema
@@ -222,6 +225,127 @@ export async function updateReservationStatusAction(input: {
     return actionSuccess("예약 상태를 변경했습니다.");
   } catch (error) {
     return actionFailure(error instanceof Error ? error.message : "예약 상태를 변경하지 못했습니다.");
+  }
+}
+
+export async function upsertTrainerAction(input: {
+  trainerId?: string;
+  name: string;
+  phone?: string;
+  memo?: string;
+}) {
+  const parsed = adminTrainerInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailure("트레이너 정보를 다시 확인해주세요.");
+
+  try {
+    await updateAppData((data) => {
+      if (parsed.data.trainerId) {
+        const trainer = data.trainers.find((item) => item.id === parsed.data.trainerId);
+        if (!trainer) throw new Error("트레이너를 찾을 수 없습니다.");
+        trainer.name = parsed.data.name;
+        trainer.phone = parsed.data.phone || undefined;
+        trainer.memo = parsed.data.memo || undefined;
+        return;
+      }
+
+      data.trainers.push({
+        id: newId("trainer"),
+        name: parsed.data.name,
+        phone: parsed.data.phone || undefined,
+        memo: parsed.data.memo || undefined
+      });
+    });
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/members");
+    revalidatePath("/admin/schedule");
+    revalidatePath("/admin/reservations");
+    return actionSuccess(parsed.data.trainerId ? "트레이너 정보를 수정했습니다." : "트레이너를 등록했습니다.");
+  } catch (error) {
+    return actionFailure(error instanceof Error ? error.message : "트레이너 정보를 저장하지 못했습니다.");
+  }
+}
+
+export async function createScheduleSlotAction(input: {
+  trainerId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  room: string;
+}) {
+  const parsed = adminScheduleSlotInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailure("시간표 정보를 다시 확인해주세요.");
+
+  try {
+    await updateAppData((data) => {
+      const trainer = data.trainers.find((item) => item.id === parsed.data.trainerId);
+      if (!trainer) throw new Error("트레이너를 찾을 수 없습니다.");
+      if (parsed.data.startTime >= parsed.data.endTime) throw new Error("종료 시간은 시작 시간보다 늦어야 합니다.");
+
+      data.scheduleSlots.push({
+        id: newId("slot"),
+        trainerId: parsed.data.trainerId,
+        date: parsed.data.date,
+        startTime: parsed.data.startTime,
+        endTime: parsed.data.endTime,
+        duration: parsed.data.duration,
+        isAvailable: true,
+        room: parsed.data.room
+      });
+    });
+    revalidatePath("/admin/schedule");
+    revalidatePath("/admin/reservations");
+    revalidatePath("/admin/members");
+    return actionSuccess("시간표를 등록했습니다.");
+  } catch (error) {
+    return actionFailure(error instanceof Error ? error.message : "시간표를 등록하지 못했습니다.");
+  }
+}
+
+export async function toggleScheduleBlockAction(input: {
+  trainerId: string;
+  date: string;
+  startTime: string;
+}) {
+  const parsed = adminScheduleBlockInputSchema.safeParse(input);
+  if (!parsed.success) return actionFailure("시간 정보를 다시 확인해주세요.");
+
+  try {
+    await updateAppData((data) => {
+      const reservation = data.reservations.find(
+        (item) =>
+          item.trainerId === parsed.data.trainerId &&
+          item.date === parsed.data.date &&
+          item.startTime === parsed.data.startTime &&
+          item.status === "booked"
+      );
+      if (reservation) throw new Error("이미 예약된 시간은 먼저 예약 상태를 변경해야 막을 수 있습니다.");
+
+      const blockIndex = data.scheduleBlocks.findIndex(
+        (item) => item.trainerId === parsed.data.trainerId && item.date === parsed.data.date && item.startTime === parsed.data.startTime
+      );
+      if (blockIndex >= 0) {
+        data.scheduleBlocks.splice(blockIndex, 1);
+        return;
+      }
+
+      const slot = data.scheduleSlots.find((item) => item.trainerId === parsed.data.trainerId && item.date === parsed.data.date);
+      if (!slot) throw new Error("해당 날짜의 시간표를 찾을 수 없습니다.");
+      data.scheduleBlocks.push({
+        id: newId("block"),
+        trainerId: parsed.data.trainerId,
+        date: parsed.data.date,
+        startTime: parsed.data.startTime,
+        endTime: reservationEnd(parsed.data.startTime, slot.duration),
+        room: slot.room,
+        reason: "관리자 차단"
+      });
+    });
+    revalidatePath("/admin/schedule");
+    revalidatePath("/admin/reservations");
+    return actionSuccess("타임 상태를 변경했습니다.");
+  } catch (error) {
+    return actionFailure(error instanceof Error ? error.message : "타임 상태를 변경하지 못했습니다.");
   }
 }
 

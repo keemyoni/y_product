@@ -71,6 +71,7 @@ export function seedData(): AppData {
     ],
     members,
     scheduleSlots,
+    scheduleBlocks: [],
     reservations: [
       { id: "r-001", memberId: "m-003", trainerId: trainerB, scheduleSlotId: "slot_04", date: "2026-07-04", startTime: "09:00", endTime: "10:00", status: "booked", room: "Room A" },
       { id: "r-002", memberId: "m-002", trainerId: trainerA, scheduleSlotId: "slot_02", date: "2026-07-05", startTime: "11:00", endTime: "12:00", status: "booked", room: "Room B" },

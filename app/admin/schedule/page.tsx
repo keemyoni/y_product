@@ -1,8 +1,8 @@
 import { Calendar } from "@/components/ui/calendar";
 import { PageHeading } from "@/components/layout/page-heading";
-import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { DraggableSlotBoard } from "@/components/ux/draggable-slot-board";
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { getAdminData } from "@/lib/server/view-models";
+import { ScheduleManagement } from "./schedule-management";
 
 export default async function SchedulePage() {
   const { raw, scheduleSlots } = await getAdminData();
@@ -19,8 +19,7 @@ export default async function SchedulePage() {
       <PageHeading
         eyebrow="Schedule"
         title="예약 가능한 시간을 정교하게 설계합니다"
-        description="요일별 반복 시간표와 예약 불가 시간을 캘린더 중심으로 관리하는 화면입니다."
-        action={<Button>시간표 등록</Button>}
+        description="시간표 등록은 트레이너의 예약 가능 구간을 만들고, 각 타임은 운영 상황에 따라 열거나 막을 수 있습니다."
       />
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Calendar events={events} />
@@ -41,7 +40,12 @@ export default async function SchedulePage() {
           </CardContent>
         </Card>
       </div>
-      <DraggableSlotBoard />
+      <ScheduleManagement
+        trainers={raw.trainers}
+        scheduleSlots={raw.scheduleSlots}
+        scheduleBlocks={raw.scheduleBlocks}
+        reservations={raw.reservations}
+      />
     </div>
   );
 }
