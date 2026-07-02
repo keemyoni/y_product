@@ -24,7 +24,7 @@ export default async function SchedulePage() {
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Calendar events={events} />
         <Card>
-          <CardHeader><CardTitle>반복 시간표</CardTitle><CardDescription>Mock Data 기반 미리보기</CardDescription></CardHeader>
+          <CardHeader><CardTitle>등록된 시간표 요약</CardTitle><CardDescription>현재 등록된 트레이너별 예약 가능 구간입니다.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             {scheduleSlots.map((day) => (
               <div key={day.day} className="rounded-md border bg-background p-4">
