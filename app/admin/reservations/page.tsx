@@ -1,12 +1,13 @@
-import { CalendarPlus, Filter } from "lucide-react";
+import { Filter } from "lucide-react";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Badge, Button, Card, CardContent, Dropdown, SearchBox, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import { ReservationStatusBadge } from "@/components/domain/reservation-status-badge";
 import { getAdminData } from "@/lib/server/view-models";
-import { ReservationActions } from "./reservation-actions";
+import { ReservationCreateButton } from "./reservation-create-button";
+import { ReservationStatusControl } from "./reservation-status-control";
 
 export default async function ReservationsPage() {
-  const { reservations } = await getAdminData();
+  const { reservations, raw } = await getAdminData();
 
   return (
     <div className="space-y-6">
@@ -14,7 +15,7 @@ export default async function ReservationsPage() {
         eyebrow="Reservations"
         title="예약 흐름을 상태별로 관리합니다"
         description="수업 완료, 노쇼, 취소, 시간 변경이 필요한 예약을 생산성 중심으로 정리합니다."
-        action={<Button><CalendarPlus className="h-4 w-4" /> 예약 추가</Button>}
+        action={<ReservationCreateButton members={raw.members} scheduleSlots={raw.scheduleSlots} reservations={raw.reservations} />}
       />
       <Card>
         <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_auto_auto]">
@@ -44,7 +45,7 @@ export default async function ReservationsPage() {
                 <TableCell>{item.type}</TableCell>
                 <TableCell><ReservationStatusBadge status={item.statusKey} label={item.status} /></TableCell>
                 <TableCell>{item.room}</TableCell>
-                <TableCell><ReservationActions reservationId={item.id} disabled={item.status !== "예약 완료"} /></TableCell>
+                <TableCell><ReservationStatusControl reservationId={item.id} status={item.statusKey} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

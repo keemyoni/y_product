@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { PageHeading } from "@/components/layout/page-heading";
 import { Badge, Button, Card, CardContent, SearchBox, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import { getAdminData } from "@/lib/server/view-models";
+import { MemberCreateButton } from "./member-create-button";
 import { MemberLinkActions } from "./member-link-actions";
 
 export default async function MembersPage() {
-  const { members } = await getAdminData();
+  const { members, raw } = await getAdminData();
 
   return (
     <div className="space-y-6">
@@ -14,7 +14,7 @@ export default async function MembersPage() {
         eyebrow="Members"
         title="회원 상태와 예약 링크를 빠르게 관리합니다"
         description="남은 횟수, 다음 예약, 담당 트레이너, 수업권 상태를 한 화면에서 스캔합니다."
-        action={<Button><Plus className="h-4 w-4" /> 회원 등록</Button>}
+        action={<MemberCreateButton trainers={raw.trainers} packages={raw.lessonPackages} />}
       />
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row">
