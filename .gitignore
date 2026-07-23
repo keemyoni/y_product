@@ -17,3 +17,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Olive Young Shopee register
+oliveyoung-shopee-register/.env
+oliveyoung-shopee-register/.env.local
+oliveyoung-shopee-register/node_modules/
+oliveyoung-shopee-register/.next/
