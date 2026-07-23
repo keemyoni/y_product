@@ -15,6 +15,8 @@ export default function Home() {
   const [drafts, setDrafts] = useState<MarketDraft[]>([]);
   const [market, setMarket] = useState<MarketCode>("MY");
   const [template, setTemplate] = useState<File | null>(null);
+  const [copiedProductText, setCopiedProductText] = useState<Record<string, string>>({});
+  const [localImages, setLocalImages] = useState<Record<string, File[]>>({});
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -64,6 +66,40 @@ export default function Home() {
 
   function patchProduct(id: string, patch: Partial<ProductSource>) {
     setProducts(items => items.map(p => p.id === id ? { ...p, ...patch } : p));
+  }
+
+  function applyCopiedProductText(product: ProductSource) {
+    const text = copiedProductText[product.id]?.trim();
+    if (!text) return setStatus("올리브영 상품 페이지에서 복사한 내용을 먼저 붙여넣으세요.");
+
+    const lines = text.split(/\r?\n/).map(line => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+    const bracketTitle = lines.find(line => /^\[[^\]]+\]\s*.+/.test(line));
+    const bracketMatch = bracketTitle?.match(/^\[([^\]]+)\]\s*(.+)$/);
+    const priceCandidates = [...text.matchAll(/(\d{1,3}(?:,\d{3})+|\d{4,7})\s*원/g)]
+      .map(match => Number(match[1].replace(/,/g, "")))
+      .filter(value => value >= 1000 && value <= 2000000);
+    const capacity = text.match(/(\d+(?:\.\d+)?)\s*(ml|mL|g|kg|매|개입|정|캡슐)\b/)?.[0] || product.capacity;
+    const nameFallback = lines.find(line =>
+      line.length >= 4 &&
+      line.length <= 180 &&
+      !/^\d|원$|%|배송|장바구니|로그인|리뷰|쿠폰/.test(line)
+    );
+
+    patchProduct(product.id, {
+      brand: bracketMatch?.[1] || product.brand,
+      name: bracketMatch?.[2] || product.name || nameFallback || "",
+      priceKrw: product.priceKrw || priceCandidates[0] || 0,
+      capacity,
+      description: product.description || lines.slice(0, 80).join("\n").slice(0, 6000),
+      extractionWarnings: ["브라우저에서 복사한 내용을 적용했습니다. 상품 페이지와 최종 대조하세요."]
+    });
+    setStatus(`${product.id} 복사 내용 적용 완료. 상품명·판매가·용량을 확인하세요.`);
+  }
+
+  function setImageFiles(productId: string, files: FileList | null) {
+    const images = Array.from(files || []).filter(file => file.type.startsWith("image/")).slice(0, 8);
+    setLocalImages(current => ({ ...current, [productId]: images }));
+    setStatus(`${productId}에 직접 촬영·사용 허가 이미지 ${images.length}장을 추가했습니다.`);
   }
 
   async function generate() {
@@ -140,6 +176,7 @@ export default function Home() {
 
       {products.length > 0 && <section className="card">
         <h2>2. 자동 확인 결과 보정</h2>
+        <p className="hint">올리브영이 자동 조회를 차단하면 아래의 상품 페이지를 열어 필요한 내용을 복사해 붙여넣고, 판매에 사용할 사진을 직접 선택하세요.</p>
         <div className="tableWrap"><table><thead><tr><th>선택</th><th>브랜드</th><th>상품명</th><th>원가(원)</th><th>용량</th><th>무게(kg)</th><th>이미지</th></tr></thead><tbody>
           {products.map(p => <tr key={p.id}>
             <td><input type="checkbox" checked={p.selected} onChange={e => patchProduct(p.id,{selected:e.target.checked})}/></td>
@@ -148,9 +185,50 @@ export default function Home() {
             <td><input type="number" value={p.priceKrw} onChange={e => patchProduct(p.id,{priceKrw:Number(e.target.value)})}/></td>
             <td><input value={p.capacity || ""} onChange={e => patchProduct(p.id,{capacity:e.target.value})}/></td>
             <td><input type="number" step="0.01" value={p.weightKg} onChange={e => patchProduct(p.id,{weightKg:Number(e.target.value)})}/></td>
-            <td>{p.imageUrls.length}장</td>
+            <td>{p.imageUrls.length + (localImages[p.id]?.length || 0)}장</td>
           </tr>)}
         </tbody></table></div>
+        <div className="manualGrid">
+          {products.map(p => <article className="manualCard" key={`manual-${p.id}`}>
+            <div className="manualHead">
+              <strong>{p.id} {p.name || "상품정보 보완 필요"}</strong>
+              <a className="openLink" href={p.url} target="_blank" rel="noreferrer">올리브영 상품 페이지 열기</a>
+            </div>
+            <ol className="compactSteps">
+              <li>상품 페이지를 열고 상품명·가격·용량·설명 부분을 드래그해 복사합니다.</li>
+              <li>아래 칸에 붙여넣은 뒤 자동 채우기를 누릅니다.</li>
+              <li>자동 입력값을 표에서 확인하고 필요한 사진을 추가합니다.</li>
+            </ol>
+            <label>복사한 상품정보</label>
+            <textarea
+              className="captureText"
+              value={copiedProductText[p.id] || ""}
+              onChange={event => setCopiedProductText(current => ({...current, [p.id]: event.target.value}))}
+              placeholder={"예: [브랜드] 상품명 30ml\n할인가 18,900원\n상품 특징과 사용법…"}
+            />
+            <div className="manualActions">
+              <button className="secondary" type="button" onClick={() => applyCopiedProductText(p)}>붙여넣은 내용 자동 채우기</button>
+              <label className="fileButton">
+                이미지 직접 선택
+                <input type="file" accept="image/*" multiple onChange={event => setImageFiles(p.id, event.target.files)} />
+              </label>
+              <span>{localImages[p.id]?.length || 0}장 선택됨</span>
+            </div>
+            <label>상세설명 원문 또는 확인된 상품 특징</label>
+            <textarea
+              value={p.description}
+              onChange={event => patchProduct(p.id, {description: event.target.value})}
+              placeholder="제품 포장이나 공식 상품 페이지에서 확인한 내용만 입력하세요."
+            />
+            <label>사용 권한을 확인한 이미지 URL (한 줄에 하나)</label>
+            <textarea
+              className="imageUrlText"
+              value={p.imageUrls.join("\n")}
+              onChange={event => patchProduct(p.id, {imageUrls: event.target.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean).slice(0, 8)})}
+              placeholder="https://..."
+            />
+          </article>)}
+        </div>
       </section>}
 
       {products.length > 0 && <section className="card">
@@ -214,7 +292,7 @@ export default function Home() {
         <div className="rights"><input type="checkbox" checked={rightsConfirmed} onChange={e=>setRightsConfirmed(e.target.checked)}/><span>상품 이미지 사용 권한 또는 재판매에 필요한 권리를 확인했습니다.</span></div>
         <div className="actions">
           <button className="secondary" onClick={exportTemplate} disabled={!template}>쇼피 템플릿 자동 채우기</button>
-          <button className="secondary" onClick={()=>downloadProductImageZip(selectedProducts)} disabled={!rightsConfirmed}>1024px 이미지 ZIP 다운로드</button>
+          <button className="secondary" onClick={()=>downloadProductImageZip(selectedProducts, localImages)} disabled={!rightsConfirmed}>1024px 이미지 ZIP 다운로드</button>
         </div>
         <p className="hint">템플릿마다 필수 카테고리 속성·배송 채널 열이 달라 자동 매핑되지 않은 열은 Seller Centre 업로드 오류 메시지에 따라 한 번만 보완하면 됩니다.</p>
       </section>}

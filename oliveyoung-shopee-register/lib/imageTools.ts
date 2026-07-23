@@ -14,14 +14,27 @@ async function squareBlob(blob: Blob, size = 1024) {
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("이미지 변환 실패")), "image/jpeg", .92));
 }
 
-export async function downloadProductImageZip(products: ProductSource[]) {
+export async function downloadProductImageZip(
+  products: ProductSource[],
+  localImages: Record<string, File[]> = {}
+) {
   const zip = new JSZip();
   for (const product of products.filter(p => p.selected)) {
-    for (let i = 0; i < Math.min(product.imageUrls.length, 8); i++) {
+    const sources: Array<{ blob?: Blob; url?: string }> = [
+      ...(localImages[product.id] || []).map((blob) => ({ blob })),
+      ...product.imageUrls.map((url) => ({ url }))
+    ].slice(0, 8);
+
+    for (let i = 0; i < sources.length; i++) {
       try {
-        const response = await fetch(`/api/image?url=${encodeURIComponent(product.imageUrls[i])}`);
-        if (!response.ok) continue;
-        const squared = await squareBlob(await response.blob());
+        let blob = sources[i].blob;
+        if (!blob && sources[i].url) {
+          const response = await fetch(`/api/image?url=${encodeURIComponent(sources[i].url!)}`);
+          if (!response.ok) continue;
+          blob = await response.blob();
+        }
+        if (!blob) continue;
+        const squared = await squareBlob(blob);
         zip.file(`${product.id}/${String(i+1).padStart(2,"0")}.jpg`, squared);
       } catch {}
     }
